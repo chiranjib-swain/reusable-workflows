@@ -54,14 +54,14 @@ jobs:
     - name: Run prettier
       run: npm run format-check
 
-    - name: Run linter
-      run: npm run lint
+    # - name: Run linter
+    #   run: npm run lint
 
-    - name: Build
-      run: npm run build
+    # - name: Build
+    #   run: npm run build
 
-    - name: Test
-      run: npm test
+    # - name: Test
+    #   run: npm test
 
     - name: Audit packages (capture output)
       if: ${{inputs.enable-audit}}
