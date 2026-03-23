@@ -86,13 +86,6 @@ jobs:
           .map(b => b.trim())
           .filter(Boolean);
     
-        function pickCmd(sev) {
-          sev = (sev || '').toLowerCase();
-          if (sev === 'high' || sev === 'critical') return 'error';
-          if (sev === 'moderate' || sev === 'medium') return 'warning';
-          return 'notice';
-        }
-    
         function firstGhsaLine(lines) {
           return lines.find(l => l.includes('https://github.com/advisories/')) || '';
         }
@@ -116,16 +109,16 @@ jobs:
           if (emitted.has(key)) continue;
           emitted.add(key);
     
-          const cmd = pickCmd(sev);
-          process.stdout.write(`::${cmd} ::${pkgLine} / Severity: ${sev} / ${advisory}\n`);
+          // Always emit as notice (your requested format)
+          process.stdout.write(`::notice ::${pkgLine} / Severity: ${sev} / ${advisory}\n`);
         }
         NODE
 
-    - name: Audit packages (fail if vulnerabilities found)
+    - name: Fail job if npm audit failed
       if: ${{inputs.enable-audit}}
       shell: bash
       run: |
         if [ "${NPM_AUDIT_EXIT}" != "0" ]; then
-          echo "npm audit failed with exit code ${NPM_AUDIT_EXIT}"
+          echo "::error title=npm audit failed::npm audit failed with exit code ${NPM_AUDIT_EXIT}"
           exit "${NPM_AUDIT_EXIT}"
         fi
