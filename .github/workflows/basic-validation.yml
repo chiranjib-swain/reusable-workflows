@@ -74,61 +74,52 @@ jobs:
 
     - name: Audit packages (emit clear annotations)
       if: ${{inputs.enable-audit}}
-      shell: node
+      shell: bash
       run: |
+        node <<'NODE'
         const fs = require('fs');
-
+    
         const text = fs.readFileSync('npm-audit.txt', 'utf8');
-
-        // Split into vulnerability blocks by blank lines (matches npm audit report formatting)
+    
         const blocks = text
           .split(/\r?\n\r?\n+/)
           .map(b => b.trim())
           .filter(Boolean);
-
+    
         function pickCmd(sev) {
           sev = (sev || '').toLowerCase();
           if (sev === 'high' || sev === 'critical') return 'error';
           if (sev === 'moderate' || sev === 'medium') return 'warning';
           return 'notice';
         }
-
+    
         function firstGhsaLine(lines) {
           return lines.find(l => l.includes('https://github.com/advisories/')) || '';
         }
-
+    
         const emitted = new Set();
-
+    
         for (const block of blocks) {
           const lines = block.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-
-          // Identify blocks that look like:
-          // "<pkg>  <range>"
-          // "Severity: <sev>"
+    
           const pkgLine = lines[0] || '';
           const sevLine = lines.find(l => /^Severity:/i.test(l)) || '';
           const sev = sevLine.replace(/^Severity:\s*/i, '').trim();
-
-          // Only handle actual vuln blocks
+    
           if (!pkgLine || !sevLine) continue;
           if (/^#\s*npm audit report/i.test(pkgLine)) continue;
-
+    
           const advisory = firstGhsaLine(lines);
           if (!advisory) continue;
-
+    
           const key = `${pkgLine}|${sev}|${advisory}`;
           if (emitted.has(key)) continue;
           emitted.add(key);
-
+    
           const cmd = pickCmd(sev);
-
-          // This matches your preferred style:
-          // ::notice ::pkg range / Severity: high / description - url
           process.stdout.write(`::${cmd} ::${pkgLine} / Severity: ${sev} / ${advisory}\n`);
-
-          // If you prefer the "fancy title=" format instead, use this line and remove the one above:
-          // process.stdout.write(`::${cmd} title=Dependency ${pkgLine} (Severity: ${sev})::${advisory}\n`);
         }
+        NODE
 
     - name: Audit packages (fail if vulnerabilities found)
       if: ${{inputs.enable-audit}}
