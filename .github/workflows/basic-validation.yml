@@ -72,45 +72,46 @@ jobs:
         echo "NPM_AUDIT_EXIT=$?" >> $GITHUB_ENV
         set -e
 
-    - name: Audit packages (emit notice lines)
+    - name: Audit packages (emit single notice per OS)
       if: ${{inputs.enable-audit}}
       shell: bash
       run: |
         node <<'NODE'
         const fs = require('fs');
-
+    
         const text = fs.readFileSync('npm-audit.txt', 'utf8');
-
-        const blocks = text
-          .split(/\r?\n\r?\n+/)
-          .map(b => b.trim())
-          .filter(Boolean);
-
+        const blocks = text.split(/\r?\n\r?\n+/).map(b => b.trim()).filter(Boolean);
+    
         function firstGhsaLine(lines) {
-          // first line with advisory URL (matches your example)
           return lines.find(l => l.includes('https://github.com/advisories/')) || '';
         }
-
+    
+        const linesOut = [];
         const emitted = new Set();
-
+    
         for (const block of blocks) {
           const lines = block.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-
           const pkgLine = lines[0] || '';
           const sevLine = lines.find(l => /^Severity:/i.test(l)) || '';
           const sev = sevLine.replace(/^Severity:\s*/i, '').trim();
-
+    
           if (!pkgLine || !sevLine) continue;
           if (/^#\s*npm audit report/i.test(pkgLine)) continue;
-
+    
           const advisory = firstGhsaLine(lines);
           if (!advisory) continue;
-
+    
           const key = `${pkgLine}|${sev}|${advisory}`;
           if (emitted.has(key)) continue;
           emitted.add(key);
-
-          process.stdout.write(`::notice ::${pkgLine} / Severity: ${sev} / ${advisory}\n`);
+    
+          linesOut.push(`${pkgLine} / Severity: ${sev} / ${advisory}`);
+        }
+    
+        if (linesOut.length) {
+          // Join with %0A to create newlines inside a single annotation message
+          const msg = linesOut.join('%0A');
+          process.stdout.write(`::notice title=npm audit vulnerabilities::${msg}\n`);
         }
         NODE
 
